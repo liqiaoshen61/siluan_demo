@@ -57,7 +57,7 @@ window.RIVER_DEMO_CONFIG = {
 生产静态服务器也需要代理（Vite 代理只用于开发）：
 
 ```nginx
-location /api/ {
+location /api/v1/ {
     proxy_pass http://192.168.2.92:7010;
 }
 location /river/ {
