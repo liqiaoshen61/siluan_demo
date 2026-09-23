@@ -55,18 +55,31 @@ function decodeResponse(res) {
   }
   return body.data;
 }
+function decodeApiResponse(res) {
+  let body = res.data;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch { throw new Error('接口返回格式异常'); }
+  }
+  if (res.statusCode < 200 || res.statusCode >= 300 || !body || body.success === false ||
+      (body.code !== undefined && ![0, 200].includes(body.code) && body.success !== true)) {
+    throw new Error(body?.msg || body?.message || `请求失败（${res.statusCode}）`);
+  }
+  return body.data !== undefined ? body.data : body;
+}
 // 严格白名单：演示业务增删改查不进入网络请求。
-const REAL_PATHS = ['/inspection/recognition', '/rectification/ai-judgment', '/rectification/manual-review'];
+const AI_PATHS = ['/issue/detect', '/issue/verify-rectification'];
+const REAL_PATHS = [...AI_PATHS, '/rectification/manual-review'];
 export function realRequest(path, data) {
   if (!REAL_PATHS.includes(path)) return Promise.reject(new Error('演示模式不允许此接口'));
   const header = { 'Content-Type': 'application/json' };
-  if (path === '/inspection/recognition' || path === '/rectification/ai-judgment') {
+  if (AI_PATHS.includes(path)) {
     header['X-API-Key'] = demoConfig.recognitionApiKey;
   }
+  const base = AI_PATHS.includes(path) ? demoConfig.aiApiBase : demoConfig.apiBase;
   return new Promise((resolve, reject) => uni.request({
-    url: demoConfig.apiBase.replace(/\/$/, '') + path, method: 'POST', data,
+    url: base.replace(/\/$/, '') + path, method: 'POST', data,
     header, timeout: 60000,
-    success: res => { try { resolve(decodeResponse(res)); } catch (error) { reject(error); } },
+    success: res => { try { resolve(decodeApiResponse(res)); } catch (error) { reject(error); } },
     fail: () => reject(new Error('接口连接失败，请检查网络及服务代理配置')),
   }));
 }

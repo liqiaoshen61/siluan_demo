@@ -22,11 +22,11 @@ npm test
 | 功能 | 地址 |
 | --- | --- |
 | 上传 | `/jwsk-resource/oss/endpoint/put-file-attach` |
-| 新增识别 | `/river/openapi/v1/inspection/recognition` |
-| 整改识别 | `/river/openapi/v1/rectification/ai-judgment` |
+| 新增识别 | `/api/v1/issue/detect` |
+| 整改识别 | `/api/v1/issue/verify-rectification` |
 | 复核校验 | `/river/openapi/v1/rectification/manual-review` |
 
-开发代理在 `vite.config.js`：上传转发到 `http://192.168.2.103:8086`，其余三个接口沿用项目原来的 `http://192.168.2.67:8905`。HBuilderX 代理同步配置在 `manifest.json`。上传表单字段为 `file`，支持响应 `data.link`、`data.url`、`data.name` 或字符串地址。
+开发代理在 `vite.config.js`：AI 识别 API 转发到 `http://192.168.2.92:7010`；人工复核转发到 `http://192.168.2.67:8905`；上传转发到 `http://192.168.2.103:8086`。上传表单字段为 `file`，支持响应 `data.link`、`data.url`、`data.name` 或字符串地址。识别请求带 `X-API-Key`。
 
 ## 联调必须具备的条件
 
@@ -41,6 +41,7 @@ npm test
 <script>
 window.RIVER_DEMO_CONFIG = {
   apiBase: '/river/openapi/v1',
+  aiApiBase: '/api/v1',
   uploadUrl: '/jwsk-resource/oss/endpoint/put-file-attach',
   fileBase: 'http://192.168.2.103:8086',
   sampleImageBase: 'http://27.156.118.74:19200',
@@ -56,6 +57,9 @@ window.RIVER_DEMO_CONFIG = {
 生产静态服务器也需要代理（Vite 代理只用于开发）：
 
 ```nginx
+location /api/ {
+    proxy_pass http://192.168.2.92:7010;
+}
 location /river/ {
     proxy_pass http://192.168.2.67:8905;
 }

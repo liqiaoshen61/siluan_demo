@@ -83,6 +83,11 @@
             "port" : 8081,
             "disableHostCheck" : true,
             "proxy" : {
+                "/api" : {
+                    "target" : "http://192.168.2.92:7010",
+                    "changeOrigin" : true,
+                    "secure" : false
+                },
                 "/jwsk-resource" : {
                     "target" : "http://192.168.2.103:8086",
                     "changeOrigin" : true,

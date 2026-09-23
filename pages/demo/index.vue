@@ -33,6 +33,7 @@
             <button class="secondary" :disabled="busy || !form.images.length" @click="recognize">{{ busy ? '处理中…' : 'AI 识别问题照片' }}</button>
             <text v-if="recognition" class="result">{{ recognition }}</text>
             <text class="label">问题类型</text><picker :range="kinds" :value="Math.max(0, kinds.indexOf(form.kind))" @change="form.kind = kinds[$event.detail.value]"><view class="field">{{ form.kind }} <text>⌄</text></view></picker>
+            <template v-if="form.problemAttribute"><text class="label">问题子类</text><view class="field">{{ form.problemAttribute }}</view></template>
             <text class="label">乡镇 / 街道</text><input v-model="form.town" class="field" placeholder="请输入乡镇或街道" maxlength="80" />
             <text class="label">河流</text><input v-model="form.river" class="field" placeholder="请输入河流名称" maxlength="80" />
             <text class="label">问题地点 *</text><input v-model="form.location" class="field" placeholder="请输入问题发生地点" maxlength="200" />
@@ -101,12 +102,12 @@ export default {
     count(status) { return this.records.filter(r => !status || r.status === status).length; },
     clearState() { this.error = ''; this.recognition = ''; this.judgment = null; this.pendingJudgment = null; this.pendingReview = null; this.reason = ''; this.approved = true; },
     close() { if (!this.busy) this.mode = ''; },
-    openCreate() { this.clearState(); this.form = { kind: '乱占', town: '', river: '', location: '', description: '', images: [] }; this.mode = 'create'; },
+    openCreate() { this.clearState(); this.form = { kind: '乱占', problemAttribute: '', town: '', river: '', location: '', description: '', images: [] }; this.mode = 'create'; },
     openDetail(row) { this.clearState(); this.selectedId = row.id; this.mode = 'detail'; },
     startRectify() { this.form = { description: '', images: [] }; this.judgment = null; this.mode = 'rectify'; },
     reset() { uni.showModal({ title: '重置演示数据', content: '清除本地新增和操作记录，恢复原始 20 条示例数据？', success: ({ confirm }) => { if (confirm) this.records = resetRecords(); } }); },
     async run(action) { if (this.busy) return; this.busy = true; this.error = ''; try { await action(); } catch (e) { this.error = e.message || e.msg || '操作失败，请重试'; } finally { this.busy = false; } },
-    invalidate() { this.judgment = null; this.recognition = ''; this.pendingJudgment = null; },
+    invalidate() { this.judgment = null; this.recognition = ''; this.pendingJudgment = null; this.form.recognitionData = null; },
     removePhoto(index) { if (this.busy) return; this.form.images.splice(index, 1); this.invalidate(); },
     choosePhotos() {
       if (this.busy) return;
@@ -117,11 +118,18 @@ export default {
     },
     preview(photo) { const url = imageUrl(photo.ref, photo.sample); if (url) uni.previewImage({ urls: [url] }); },
     recognize() { return this.run(async () => {
-      const result = await realRequest('/inspection/recognition', { imageRef: this.form.images[0].ref });
+      const image_url = imageUrl(this.form.images[0].ref, this.form.images[0].sample);
+      if (!image_url) throw new Error('无法获取图片地址，请重新上传');
+      const result = await realRequest('/issue/detect', { image_url });
       if (!result || typeof result !== 'object') throw new Error('识别接口未返回有效结果');
-      this.recognition = result.suggestedDescription || result.suggestedSubtypeName || '识别完成，请确认问题信息';
-      if (kinds.includes(result.suggestedTypeName)) this.form.kind = result.suggestedTypeName;
-      if (result.suggestedDescription) this.form.description = result.suggestedDescription;
+      this.form.recognitionData = result;
+      const categoryMain = result.category_main || result.categoryMain;
+      const categorySub = result.category_sub || result.categorySub;
+      const description = result.description || result.suggestedDescription;
+      this.recognition = description || categorySub || '识别完成，请确认问题信息';
+      if (categoryMain) this.form.kind = categoryMain;
+      if (categorySub) this.form.problemAttribute = categorySub;
+      if (description) this.form.description = description;
       if (result.suggestedLocation) this.form.location = result.suggestedLocation;
     }); },
     submitCreate() { return this.run(async () => {
@@ -130,12 +138,24 @@ export default {
     }); },
     judge() { return this.run(async () => {
       this.judgment = null;
-      const context = taskContext(this.selected);
-      if (!this.pendingJudgment) this.pendingJudgment = { ...context, requestId: requestId(), imageRefs: this.form.images.map(p => p.ref) };
-      const result = await realRequest('/rectification/ai-judgment', this.pendingJudgment);
-      if (!result || !['COMPLETED', 'INCOMPLETE', 'FAILED'].includes(result.aiResult)) throw new Error('整改识别接口返回结果不完整');
-      this.judgment = result; this.pendingJudgment = null;
-      this.records = updateRecord(this.records, this.selectedId, { remoteVersion: result.version ?? context.version }, `整改识别：${result.conclusion || result.aiResult}`);
+      const before = this.selected.images?.[0];
+      const after = this.form.images?.[0];
+      const before_image_url = before && imageUrl(before.ref, before.sample);
+      const after_image_url = after && imageUrl(after.ref, after.sample);
+      if (!before_image_url || !after_image_url) throw new Error('整改校验需要整改前、整改后照片');
+      const detection = this.selected.recognitionData || {};
+      const category_main = detection.category_main || detection.categoryMain || this.selected.kind;
+      const category_sub = detection.category_sub || detection.categorySub || this.selected.problemAttribute || this.selected.problemDescription || '';
+      const description = detection.description || detection.suggestedDescription || this.selected.description || '';
+      if (!category_main || !category_sub || !description) throw new Error('缺少问题分类或描述，请先完成新增问题识别');
+      const result = await realRequest('/issue/verify-rectification', { before_image_url, after_image_url, category_main, category_sub, description });
+      if (!result || typeof result !== 'object') throw new Error('整改识别接口未返回有效结果');
+      const rawVerdict = result.passed ?? result.is_passed ?? result.is_rectified ?? result.rectification_passed ?? result.is_compliant ?? result.verified ?? result.rectified ?? result.result;
+      const verdict = typeof rawVerdict === 'boolean' ? rawVerdict : typeof result.status === 'string' ? ['PASS', 'PASSED', 'COMPLETED', 'RECTIFIED'].includes(result.status.toUpperCase()) ? true : ['FAIL', 'FAILED', 'INCOMPLETE', 'NOT_RECTIFIED'].includes(result.status.toUpperCase()) ? false : undefined : undefined;
+      if (typeof verdict !== 'boolean') throw new Error('整改校验响应中缺少通过状态，请检查接口返回字段');
+      const conclusion = result.conclusion || result.message || result.description || (verdict ? '整改校验通过' : '整改校验未通过');
+      this.judgment = { ...result, aiResult: verdict ? 'COMPLETED' : 'INCOMPLETE', canSubmit: verdict, judgmentId: 'issue-verify', conclusion };
+      this.records = updateRecord(this.records, this.selectedId, {}, `整改识别：${conclusion}`);
     }); },
     submitRectify() { return this.run(async () => {
       if (!this.canSubmit || !this.form.description.trim()) throw new Error('请完成整改识别并填写整改说明');
