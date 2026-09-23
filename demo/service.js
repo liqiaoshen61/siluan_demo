@@ -68,7 +68,7 @@ function decodeApiResponse(res) {
 }
 // 严格白名单：演示业务增删改查不进入网络请求。
 const AI_PATHS = ['/issue/detect', '/issue/verify-rectification'];
-const REAL_PATHS = [...AI_PATHS, '/rectification/manual-review'];
+const REAL_PATHS = [...AI_PATHS];
 export function realRequest(path, data) {
   if (!REAL_PATHS.includes(path)) return Promise.reject(new Error('演示模式不允许此接口'));
   const header = { 'Content-Type': 'application/json' };

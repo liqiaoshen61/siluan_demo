@@ -77,6 +77,12 @@ button[disabled] { opacity: .5; }
 .field { background: #f4f8fa; border: 1px solid #d4dfe5; padding: 22rpx; border-radius: 3rpx; font-size: 30rpx; height: auto; display: flex; justify-content: space-between; }
 .textarea { box-sizing: border-box; background: #f4f8fa; border: 1px solid #d4dfe5; width: 100%; height: 180rpx; padding: 22rpx; border-radius: 3rpx; font-size: 30rpx; margin-top: 16rpx; }
 .result { display: block; background: #e1f3fe; color: #26749f; padding: 22rpx; border-left: 4rpx solid #38a1df; margin-top: 20rpx; line-height: 1.7; }
+.recognition-loading { display: flex; align-items: center; gap: 20rpx; margin-top: 20rpx; padding: 22rpx 24rpx; border: 1px solid #c8e5f5; border-radius: 12rpx; background: linear-gradient(110deg, #edf8fe, #f8fcff); }
+.loading-spinner { width: 36rpx; height: 36rpx; flex: 0 0 36rpx; border: 4rpx solid #b9dff3; border-top-color: #2185d9; border-radius: 50%; box-sizing: border-box; animation: recognition-spin .8s linear infinite; }
+.loading-copy { display: flex; flex-direction: column; gap: 5rpx; }
+.loading-title { color: #176fae; font-size: 27rpx; font-weight: 500; }
+.loading-hint { color: #71838e; font-size: 23rpx; line-height: 1.5; }
+@keyframes recognition-spin { to { transform: rotate(360deg); } }
 .detail-title { display: block; font-size: 36rpx; font-weight: 500; margin: 26rpx 0 14rpx; }
 .meta { display: block; color: #72838d; font-size: 25rpx; margin-top: 16rpx; word-break: break-all; }
 .body-text { line-height: 1.8; }

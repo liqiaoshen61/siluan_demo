@@ -30,7 +30,8 @@
           <template v-if="mode === 'create'">
             <text class="section-title">问题照片</text>
             <view class="photos"><view v-for="(photo, i) in form.images" :key="photo.ref" class="photo"><image :src="imageUrl(photo.ref)" mode="aspectFill" @click="preview(photo)" /><text class="remove" @click="removePhoto(i)">×</text></view><button v-if="form.images.length < 9" class="upload" :disabled="busy" @click="choosePhotos">＋<text>拍照 / 相册</text></button></view>
-            <button class="secondary" :disabled="busy || !form.images.length" @click="recognize">{{ busy ? '处理中…' : 'AI 识别问题照片' }}</button>
+            <button class="secondary" :disabled="busy || !form.images.length" @click="recognize">AI 识别问题照片</button>
+            <view v-if="loadingAction === 'recognize'" class="recognition-loading"><view class="loading-spinner" /><view class="loading-copy"><text class="loading-title">正在识别问题</text><text class="loading-hint">AI 正在分析现场照片，请稍候…</text></view></view>
             <text v-if="recognition" class="result">{{ recognition }}</text>
             <text class="label">问题类型</text><picker :range="kinds" :value="Math.max(0, kinds.indexOf(form.kind))" @change="form.kind = kinds[$event.detail.value]"><view class="field">{{ form.kind }} <text>⌄</text></view></picker>
             <template v-if="form.problemAttribute"><text class="label">问题子类</text><view class="field">{{ form.problemAttribute }}</view></template>
@@ -49,7 +50,8 @@
               <text class="section-title">整改材料</text><text class="muted">上传整改后照片，识别通过后提交复核。</text>
               <view class="photos"><view v-for="(photo, i) in form.images" :key="photo.ref" class="photo"><image :src="imageUrl(photo.ref)" mode="aspectFill" @click="preview(photo)" /><text class="remove" @click="removePhoto(i)">×</text></view><button v-if="form.images.length < 9" class="upload" :disabled="busy" @click="choosePhotos">＋<text>拍照 / 相册</text></button></view>
               <text class="label">整改说明 *</text><textarea v-model="form.description" class="textarea" maxlength="1000" placeholder="请填写整改措施和完成情况" />
-              <button class="secondary" :disabled="busy || !form.images.length" @click="judge">{{ busy ? '处理中…' : 'AI 识别整改结果' }}</button>
+              <button class="secondary" :disabled="busy || !form.images.length" @click="judge">AI 识别整改结果</button>
+              <view v-if="loadingAction === 'judge'" class="recognition-loading"><view class="loading-spinner" /><view class="loading-copy"><text class="loading-title">正在核验整改</text><text class="loading-hint">AI 正在比对整改前后照片，请稍候…</text></view></view>
               <text v-if="judgment" class="result">{{ judgment.conclusion || judgment.aiResult }}</text>
             </template>
             <template v-if="selected.rectifyDescription">
@@ -83,10 +85,10 @@
 </template>
 
 <script>
-import { statuses, kinds, loadRecords, resetRecords, addRecord, updateRecord, imageUrl, uploadImage, realRequest, taskContext, requestId } from '@/demo/service.js';
+import { statuses, kinds, loadRecords, resetRecords, addRecord, updateRecord, imageUrl, uploadImage, realRequest, requestId } from '@/demo/service.js';
 export default {
   data: () => ({ records: [], statuses, kinds, keyword: '', status: '', limit: 10, mode: '', selectedId: '',
-    form: { images: [] }, busy: false, error: '', recognition: '', judgment: null, approved: true, reason: '', pendingJudgment: null, pendingReview: null }),
+    form: { images: [] }, busy: false, loadingAction: '', error: '', recognition: '', judgment: null, approved: true, reason: '', pendingJudgment: null, pendingReview: null }),
   computed: {
     tabs() { return [{ value: '', label: '全部' }, ...Object.entries(statuses).map(([value, label]) => ({ value, label }))]; },
     filtered() { const keyword = this.keyword.trim().toLowerCase(); return this.records.filter(r => (!this.status || r.status === this.status) && (!keyword || [r.id, r.town, r.river, r.location, r.description, r.kind].join(' ').toLowerCase().includes(keyword))); },
@@ -106,7 +108,7 @@ export default {
     openDetail(row) { this.clearState(); this.selectedId = row.id; this.mode = 'detail'; },
     startRectify() { this.form = { description: '', images: [] }; this.judgment = null; this.mode = 'rectify'; },
     reset() { uni.showModal({ title: '重置演示数据', content: '清除本地新增和操作记录，恢复原始 20 条示例数据？', success: ({ confirm }) => { if (confirm) this.records = resetRecords(); } }); },
-    async run(action) { if (this.busy) return; this.busy = true; this.error = ''; try { await action(); } catch (e) { this.error = e.message || e.msg || '操作失败，请重试'; } finally { this.busy = false; } },
+    async run(action, loadingAction = '') { if (this.busy) return; this.busy = true; this.loadingAction = loadingAction; this.error = ''; try { await action(); } catch (e) { this.error = e.message || e.msg || '操作失败，请重试'; } finally { this.busy = false; this.loadingAction = ''; } },
     invalidate() { this.judgment = null; this.recognition = ''; this.pendingJudgment = null; this.form.recognitionData = null; },
     removePhoto(index) { if (this.busy) return; this.form.images.splice(index, 1); this.invalidate(); },
     choosePhotos() {
@@ -131,7 +133,7 @@ export default {
       if (categorySub) this.form.problemAttribute = categorySub;
       if (description) this.form.description = description;
       if (result.suggestedLocation) this.form.location = result.suggestedLocation;
-    }); },
+    }, 'recognize'); },
     submitCreate() { return this.run(async () => {
       if (!this.form.images.length || !this.form.location.trim() || !this.form.description.trim()) throw new Error('请上传问题照片并填写地点、描述');
       this.records = addRecord(this.records, this.form); this.status = ''; this.keyword = ''; this.mode = ''; uni.showToast({ title: '问题已保存', icon: 'success' });
@@ -156,7 +158,7 @@ export default {
       const conclusion = result.conclusion || result.message || result.description || (verdict ? '整改校验通过' : '整改校验未通过');
       this.judgment = { ...result, aiResult: verdict ? 'COMPLETED' : 'INCOMPLETE', canSubmit: verdict, judgmentId: 'issue-verify', conclusion };
       this.records = updateRecord(this.records, this.selectedId, {}, `整改识别：${conclusion}`);
-    }); },
+    }, 'judge'); },
     submitRectify() { return this.run(async () => {
       if (!this.canSubmit || !this.form.description.trim()) throw new Error('请完成整改识别并填写整改说明');
       this.records = updateRecord(this.records, this.selectedId, { status: 'REVIEW', rectifyImages: this.form.images, rectifyDescription: this.form.description, judgmentId: this.judgment.judgmentId }, '提交整改，等待复核');
@@ -164,12 +166,10 @@ export default {
     }); },
     submitReview() { return this.run(async () => {
       if (!this.reason.trim()) throw new Error('请填写复核意见');
-      const payload = { ...taskContext(this.selected), approved: this.approved, reason: this.reason.trim() };
-      const signature = JSON.stringify(payload);
-      if (this.pendingReview?.signature !== signature) this.pendingReview = { signature, data: { ...payload, requestId: requestId() } };
-      const result = await realRequest('/rectification/manual-review', this.pendingReview.data);
-      if (!result || typeof result !== 'object' || !result.status) throw new Error('复核接口未返回有效状态');
-      this.records = updateRecord(this.records, this.selectedId, { status: payload.approved ? 'COMPLETED' : 'RECTIFYING', remoteVersion: result.version ?? payload.version }, `${payload.approved ? '复核通过' : '退回整改'}：${payload.reason}`);
+      const approved = this.approved;
+      const reason = this.reason.trim();
+      this.records = updateRecord(this.records, this.selectedId, { status: approved ? 'COMPLETED' : 'RECTIFYING' }, `${approved ? '复核通过' : '退回整改'}：${reason}`);
+      uni.showToast({ title: approved ? '复核通过' : '已退回整改', icon: 'success' });
       this.pendingReview = null; this.mode = 'detail';
     }); },
   },

@@ -24,16 +24,13 @@ npm test
 | 上传 | `/jwsk-resource/oss/endpoint/put-file-attach` |
 | 新增识别 | `/api/v1/issue/detect` |
 | 整改识别 | `/api/v1/issue/verify-rectification` |
-| 复核校验 | `/river/openapi/v1/rectification/manual-review` |
 
-开发代理在 `vite.config.js`：AI 识别 API 转发到 `http://192.168.2.92:7010`；人工复核转发到 `http://192.168.2.67:8905`；上传转发到 `http://192.168.2.103:8086`。上传表单字段为 `file`，支持响应 `data.link`、`data.url`、`data.name` 或字符串地址。识别请求带 `X-API-Key`。
+开发代理在 `vite.config.js`：AI 识别 API 转发到 `http://192.168.2.92:7010`；上传转发到 `http://192.168.2.103:8086`。上传表单字段为 `file`，支持响应 `data.link`、`data.url`、`data.name` 或字符串地址。识别请求带 `X-API-Key`。复核在本地模拟，不调用后端。
 
 ## 联调必须具备的条件
 
-1. **真实任务映射**：示例文件只有图斑 ID，没有整改任务 ID。现有整改识别与人工复核接口需要真实 `rectificationId`、版本和对应后端状态。不能把图斑 ID 直接当作任务 ID，也不能以纯本地新增替代后端任务创建。通过下述 `taskBindings` 关联真实演示任务。新建本地问题 ID 可在详情查看。
-2. **后端状态前提**：人工复核接口是有副作用的真实提交接口，并非纯图片校验。后端任务必须满足允许人工复核的状态；本地“提交整改”不会修改后端状态。要让任意本地新增问题完整通过真实识别、复核，需后端提供支持演示上下文的无状态接口，或预置符合要求的演示任务；前端不会偷偷调用额外业务接口。
-3. **免登录**：不发送 token，不刷新登录、不跳转登录页。后端/网关需要对上述演示接口提供免登录访问，否则页面显示后端 401 错误。
-4. **整改前照片**：`beforeImageText` 按分号拆分多张图片，每项取逗号前的路径，拼接 `http://27.156.118.74:19200`。例如 `/static/work_file/2025-04-02/pic52574003368.JPG` 会使用该前缀显示；可通过 `sampleImageBase` 覆盖图片服务地址。
+1. **免登录**：不发送 token，不刷新登录、不跳转登录页。后端/网关需要对上述演示接口提供免登录访问，否则页面显示后端 401 错误。
+2. **整改前照片**：`beforeImageText` 按分号拆分多张图片，每项取逗号前的路径，拼接 `http://27.156.118.74:19200`。例如 `/static/work_file/2025-04-02/pic52574003368.JPG` 会使用该前缀显示；可通过 `sampleImageBase` 覆盖图片服务地址。
 
 可在 `index.html` 的应用脚本之前加入配置，或修改 `demo/config.js`：
 
@@ -45,9 +42,6 @@ window.RIVER_DEMO_CONFIG = {
   uploadUrl: '/jwsk-resource/oss/endpoint/put-file-attach',
   fileBase: 'http://192.168.2.103:8086',
   sampleImageBase: 'http://27.156.118.74:19200',
-  taskBindings: {
-    // '图斑或本地问题ID': { rectificationId: '真实后端任务ID', version: 0 }
-  }
 };
 </script>
 ```
