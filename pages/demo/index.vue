@@ -49,10 +49,10 @@
             <template v-if="mode === 'rectify'">
               <text class="section-title">整改材料</text><text class="muted">上传整改后照片，识别通过后提交复核。</text>
               <view class="photos"><view v-for="(photo, i) in form.images" :key="photo.ref" class="photo"><image :src="imageUrl(photo.ref)" mode="aspectFill" @click="preview(photo)" /><text class="remove" @click="removePhoto(i)">×</text></view><button v-if="form.images.length < 9" class="upload" :disabled="busy" @click="choosePhotos">＋<text>拍照 / 相册</text></button></view>
-              <text class="label">整改说明 *</text><textarea v-model="form.description" class="textarea" maxlength="1000" placeholder="请填写整改措施和完成情况" />
               <button class="secondary" :disabled="busy || !form.images.length" @click="judge">AI 识别整改结果</button>
               <view v-if="loadingAction === 'judge'" class="recognition-loading"><view class="loading-spinner" /><view class="loading-copy"><text class="loading-title">正在核验整改</text><text class="loading-hint">AI 正在比对整改前后照片，请稍候…</text></view></view>
               <text v-if="judgment" class="result">{{ judgment.conclusion || judgment.aiResult }}</text>
+              <text class="label">整改说明 *</text><textarea v-model="form.description" class="textarea" maxlength="1000" placeholder="请填写整改措施和完成情况" />
             </template>
             <template v-if="selected.rectifyDescription">
               <text class="section-title">整改情况</text><text class="body-text">{{ selected.rectifyDescription }}</text>
