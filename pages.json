@@ -1,0 +1,16 @@
+{
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f3f6fa",
+    "navigationBarTitleText": "四乱问题管理"
+  },
+  "pages": [
+    {
+      "path": "pages/demo/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "四乱问题管理"
+      }
+    }
+  ]
+}
