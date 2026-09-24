@@ -52,11 +52,13 @@
             <view class="photos"><view v-for="photo in selected.images" :key="photo.ref" class="photo"><image v-if="imageUrl(photo.ref, photo.sample)" :src="imageUrl(photo.ref, photo.sample)" mode="aspectFill" @click="preview(photo)" /><text v-else class="placeholder">示例照片<br />待配置图片服务</text></view></view>
             <template v-if="mode === 'rectify'">
               <text class="section-title">整改材料</text><text class="muted">上传整改后照片，识别通过后提交复核。</text>
-              <view class="photos"><view v-for="(photo, i) in form.images" :key="photo.ref" class="photo"><image :src="imageUrl(photo.ref)" mode="aspectFill" @click="preview(photo)" /><text class="remove" @click="removePhoto(i)">×</text></view><button v-if="form.images.length < 9" class="upload" :disabled="busy" @click="choosePhotos">＋<text>拍照 / 相册</text></button></view>
+              <view class="photos"><view v-for="(photo, i) in form.images" :key="photo.ref" class="photo"><image :src="imageUrl(photo.ref)" mode="aspectFill" @click="preview(photo)" /><text class="remove" @click="removePhoto(i)">×</text></view><button v-if="form.images.length < photoLimit" class="upload" :disabled="busy" @click="choosePhotos">＋<text>拍照 / 相册（限1张）</text></button></view>
               <button class="secondary" :disabled="busy || !form.images.length" @click="judge">AI 识别整改结果</button>
               <view v-if="loadingAction === 'judge'" class="recognition-loading"><view class="loading-spinner" /><view class="loading-copy"><text class="loading-title">正在核验整改</text><text class="loading-hint">AI 正在比对整改前后照片，请稍候…</text></view></view>
               <text v-if="judgment" class="result">{{ judgment.conclusion || judgment.aiResult }}</text>
-              <text class="label">整改说明 *</text><textarea v-model="form.description" class="textarea" maxlength="1000" placeholder="请填写整改措施和完成情况" />
+              <text v-if="rectifyAiFailCount > 0 && !canSubmit" class="field-hint">AI 未通过次数：{{ rectifyAiFailCount }}/3</text>
+              <view v-if="manualReviewAvailable" class="manual-review-hint">AI 已连续 3 次判断未通过，可提交人工复核。</view>
+              <text class="label">整改说明 *</text><text v-if="rectifyDescriptionMissing" class="field-hint error-hint">请填写整改说明后再提交复核</text><textarea v-model="form.description" class="textarea" maxlength="1000" placeholder="请填写整改措施和完成情况" />
             </template>
             <template v-if="selected.rectifyDescription">
               <text class="section-title">整改情况</text><text class="body-text">{{ selected.rectifyDescription }}</text>
@@ -64,6 +66,7 @@
             </template>
             <template v-if="mode === 'review'">
               <text class="section-title">复核意见</text>
+              <view v-if="selected.manualReviewRequired" class="manual-review-hint">AI 连续 3 次判断未通过，请进行人工复核。</view>
               <radio-group class="decisions" @change="!busy && (approved = $event.detail.value === 'approved')">
                 <label class="decision-option"><radio value="approved" :checked="approved" :disabled="busy" color="#2185d9" /><text>复核通过</text></label>
                 <label class="decision-option"><radio value="rejected" :checked="!approved" :disabled="busy" color="#2185d9" /><text>退回整改</text></label>
@@ -77,10 +80,10 @@
         </scroll-view>
         <view class="sheet-footer">
           <button v-if="mode === 'create'" class="primary" :disabled="busy" @click="submitCreate">保存并发起整改</button>
-          <button v-else-if="mode === 'rectify'" class="primary" :disabled="busy || !canSubmit" @click="submitRectify">提交复核</button>
+          <button v-else-if="mode === 'rectify'" class="primary" :disabled="busy || !canSubmit && !manualReviewAvailable" @click="submitRectify">{{ manualReviewAvailable ? '提交人工复核' : '提交复核' }}</button>
           <button v-else-if="mode === 'review'" class="primary" :disabled="busy" @click="submitReview">{{ busy ? '校验中…' : '校验并提交复核' }}</button>
           <button v-else-if="selected.status === 'RECTIFYING'" class="primary" @click="startRectify">开始整改</button>
-          <button v-else-if="selected.status === 'REVIEW'" class="primary" @click="mode = 'review'">开始复核</button>
+          <button v-else-if="selected.status === 'REVIEW' && showStartReview" class="primary" @click="mode = 'review'">开始复核</button>
           <button v-else class="secondary" @click="close">完成</button>
         </view>
       </view>
@@ -92,7 +95,7 @@
 import { statuses, kinds, loadRecords, resetRecords, addRecord, updateRecord, imageUrl, uploadImage, realRequest, requestId } from '@/demo/service.js';
 export default {
   data: () => ({ records: [], statuses, kinds, keyword: '', status: '', limit: 10, mode: '', selectedId: '',
-    form: { images: [] }, busy: false, loadingAction: '', error: '', recognition: '', judgment: null, approved: true, reason: '', pendingJudgment: null, pendingReview: null }),
+    form: { images: [] }, busy: false, loadingAction: '', error: '', recognition: '', judgment: null, approved: true, reason: '', pendingJudgment: null, pendingReview: null, showStartReview: false }),
   computed: {
     tabs() { return [{ value: '', label: '全部' }, ...Object.entries(statuses).map(([value, label]) => ({ value, label }))]; },
     filtered() { const keyword = this.keyword.trim().toLowerCase(); return this.records.filter(r => (!this.status || r.status === this.status) && (!keyword || [r.id, r.town, r.river, r.location, r.description, r.kind].join(' ').toLowerCase().includes(keyword))); },
@@ -100,6 +103,10 @@ export default {
     selected() { return this.records.find(r => r.id === this.selectedId); },
     modeTitle() { return { create: '新增问题', detail: '问题详情', rectify: '问题整改', review: '问题复核' }[this.mode]; },
     canSubmit() { return this.judgment?.aiResult === 'COMPLETED' && this.judgment?.canSubmit === true && !!this.judgment?.judgmentId; },
+    rectifyAiFailCount() { return this.selected?.rectifyAiFailImageRef === this.form.images?.[0]?.ref ? Number(this.selected?.rectifyAiFailCount || 0) : 0; },
+    manualReviewAvailable() { return this.rectifyAiFailCount >= 3 && !this.canSubmit; },
+    photoLimit() { return this.mode === 'rectify' ? 1 : 9; },
+    rectifyDescriptionMissing() { return this.error === '请填写整改说明后再提交复核'; },
   },
   watch: { keyword() { this.limit = 10; }, status() { this.limit = 10; } },
   onLoad() { this.records = loadRecords(); },
@@ -109,7 +116,7 @@ export default {
     clearState() { this.error = ''; this.recognition = ''; this.judgment = null; this.pendingJudgment = null; this.pendingReview = null; this.reason = ''; this.approved = true; },
     close() { if (!this.busy) this.mode = ''; },
     openCreate() { this.clearState(); this.form = { kind: '乱占', problemAttribute: '', town: '', river: '', location: '', description: '', images: [] }; this.mode = 'create'; },
-    openDetail(row) { this.clearState(); this.selectedId = row.id; this.mode = 'detail'; },
+    openDetail(row) { this.clearState(); this.selectedId = row.id; this.showStartReview = false; this.mode = row.status === 'REVIEW' ? 'review' : 'detail'; },
     startRectify() { this.form = { description: '', images: [] }; this.judgment = null; this.mode = 'rectify'; },
     reset() { uni.showModal({ title: '重置演示数据', content: '清除本地新增和操作记录，恢复原始 20 条示例数据？', success: ({ confirm }) => { if (confirm) this.records = resetRecords(); } }); },
     async run(action, loadingAction = '') { if (this.busy) return; this.busy = true; this.loadingAction = loadingAction; this.error = ''; try { await action(); } catch (e) { this.error = e.message || e.msg || '操作失败，请重试'; } finally { this.busy = false; this.loadingAction = ''; } },
@@ -117,8 +124,9 @@ export default {
     removePhoto(index) { if (this.busy) return; this.form.images.splice(index, 1); this.invalidate(); },
     choosePhotos() {
       if (this.busy) return;
-      uni.chooseImage({ count: 9 - this.form.images.length, sizeType: ['compressed'], sourceType: ['album', 'camera'],
-        success: res => this.run(async () => { this.invalidate(); for (const path of res.tempFilePaths) this.form.images.push(await uploadImage(path)); }),
+      const count = Math.max(1, this.photoLimit - this.form.images.length);
+      uni.chooseImage({ count, sizeType: ['compressed'], sourceType: ['album', 'camera'],
+        success: res => this.run(async () => { this.invalidate(); for (const path of res.tempFilePaths.slice(0, count)) this.form.images.push(await uploadImage(path)); }),
         fail: e => { if (!String(e.errMsg).includes('cancel')) this.error = '无法打开相册或相机，请检查宿主 App 权限'; },
       });
     },
@@ -161,12 +169,19 @@ export default {
       if (typeof verdict !== 'boolean') throw new Error('整改校验响应中缺少通过状态，请检查接口返回字段');
       const conclusion = result.conclusion || result.message || result.description || (verdict ? '整改校验通过' : '整改校验未通过');
       this.judgment = { ...result, aiResult: verdict ? 'COMPLETED' : 'INCOMPLETE', canSubmit: verdict, judgmentId: 'issue-verify', conclusion };
-      this.records = updateRecord(this.records, this.selectedId, {}, `整改识别：${conclusion}`);
+      const afterImageRef = after.ref;
+      const currentFailures = this.selected.rectifyAiFailImageRef === afterImageRef ? this.rectifyAiFailCount : 0;
+      const failures = verdict ? 0 : currentFailures + 1;
+      this.records = updateRecord(this.records, this.selectedId, { rectifyAiFailCount: failures, rectifyAiFailImageRef: afterImageRef }, `整改识别：${conclusion}${verdict ? '' : `（未通过 ${failures}/3 次）`}`);
     }, 'judge'); },
     submitRectify() { return this.run(async () => {
-      if (!this.canSubmit || !this.form.description.trim()) throw new Error('请完成整改识别并填写整改说明');
-      this.records = updateRecord(this.records, this.selectedId, { status: 'REVIEW', rectifyImages: this.form.images, rectifyDescription: this.form.description, judgmentId: this.judgment.judgmentId }, '提交整改，等待复核');
+      if (!this.form.description.trim()) throw new Error('请填写整改说明后再提交复核');
+      const manualReview = this.manualReviewAvailable;
+      if (!this.canSubmit && !manualReview) throw new Error('请先完成整改识别并确认识别通过');
+      this.records = updateRecord(this.records, this.selectedId, { status: 'REVIEW', rectifyImages: this.form.images, rectifyDescription: this.form.description, judgmentId: this.judgment?.judgmentId || '', manualReviewRequired: manualReview }, manualReview ? 'AI 连续 3 次未通过，已转人工复核' : '提交整改，等待复核');
+      this.showStartReview = true;
       this.mode = 'detail';
+      uni.showToast({ title: manualReview ? '已转人工复核' : '提交成功', icon: 'success', duration: 2000 });
     }); },
     submitReview() { return this.run(async () => {
       if (!this.reason.trim()) throw new Error('请填写复核意见');
