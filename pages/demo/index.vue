@@ -30,6 +30,7 @@
     <view v-if="mode" class="overlay">
       <view class="sheet">
         <view class="sheet-head"><text>{{ modeTitle }}</text><button class="close" :disabled="busy" @click="close">关闭</button></view>
+        <view v-if="mode === 'create' && error" class="create-error-banner"><text class="create-error-title">提交信息不完整</text><text>{{ error }}</text></view>
         <scroll-view scroll-y class="sheet-body">
           <template v-if="mode === 'create'">
             <text class="section-title">问题照片</text>
@@ -75,7 +76,7 @@
             </template>
             <template v-if="mode === 'detail'"><text class="section-title">处理记录</text><view v-for="(event, i) in selected.history" :key="i" class="history"><text>{{ event.text }}</text><text class="muted">{{ event.time }}</text></view></template>
           </template>
-          <text v-if="error" class="error">{{ error }}</text>
+          <text v-if="error && mode !== 'create'" class="error">{{ error }}</text>
           <view class="body-end" />
         </scroll-view>
         <view class="sheet-footer">
@@ -147,7 +148,11 @@ export default {
       if (result.suggestedLocation) this.form.location = result.suggestedLocation;
     }, 'recognize'); },
     submitCreate() { return this.run(async () => {
-      if (!this.form.images.length || !this.form.location.trim() || !this.form.description.trim()) throw new Error('请上传问题照片并填写地点、描述');
+      const missing = [];
+      if (!this.form.images.length) missing.push('问题照片');
+      if (!this.form.location.trim()) missing.push('问题地点');
+      if (!this.form.description.trim()) missing.push('问题描述');
+      if (missing.length) throw new Error(`请补充必填项：${missing.join('、')}`);
       this.records = addRecord(this.records, this.form); this.status = ''; this.keyword = ''; this.mode = ''; uni.showToast({ title: '问题已保存', icon: 'success' });
     }); },
     judge() { return this.run(async () => {

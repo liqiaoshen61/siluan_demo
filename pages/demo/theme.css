@@ -63,6 +63,8 @@ button[disabled] { opacity: .5; }
 .overlay { position: fixed; inset: 0; background: rgba(22, 42, 56, .4); z-index: 100; display: flex; justify-content: center; align-items: flex-end; }
 .sheet { width: 100%; max-width: 760px; height: 96vh; height: 96dvh; background: #fff; display: flex; flex-direction: column; overflow: hidden; }
 .sheet-head { display: flex; justify-content: space-between; align-items: center; padding: 24rpx 28rpx; background: var(--app-blue); color: #fff; font-size: 34rpx; }
+.create-error-banner { display: flex; flex-direction: column; gap: 5rpx; padding: 16rpx 28rpx; border-bottom: 1px solid #efc7c0; background: #fff1ee; color: #9c392d; font-size: 24rpx; line-height: 1.5; }
+.create-error-title { font-size: 26rpx; font-weight: 600; }
 .close { margin: 0; padding: 0 12rpx; background: transparent; color: #fff; font-size: 28rpx; line-height: 56rpx; }
 .sheet-body { flex: 1; height: 0; min-height: 0; padding: 28rpx; box-sizing: border-box; }
 .sheet-footer { padding: 20rpx 28rpx calc(20rpx + env(safe-area-inset-bottom)); background: #eef6fa; border-top: 1px solid var(--line); }
