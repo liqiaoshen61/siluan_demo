@@ -25,7 +25,7 @@ npm test
 | 新增识别 | `http://218.85.23.37:20320/api/v1/issue/detect` |
 | 整改识别 | `http://218.85.23.37:20320/api/v1/issue/verify-rectification` |
 
-H5 通过同源 `/api/v1` 路径请求接口，由开发或部署服务器代理至上述后端，避免浏览器跨域拦截。上传表单字段为 `file`，支持响应 `data.link`、`data.url`、`data.name` 或字符串地址。复核在本地模拟，不调用后端。
+H5 通过同源 `/api/v1` 路径请求接口，由开发或部署服务器代理至上述后端，避免浏览器跨域拦截。上传表单字段为 `files`；文件引用从 `data.results[0].file_name` 读取，并以 `fileBase` 拼接访问地址。复核在本地模拟，不调用后端。
 
 ## 联调必须具备的条件
 

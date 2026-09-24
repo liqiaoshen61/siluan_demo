@@ -96,7 +96,8 @@ export function uploadImage(filePath) {
     success: res => {
       try {
         const data = decodeResponse(res);
-        const ref = typeof data === 'string' ? data : data?.link || data?.url || data?.name;
+        const uploaded = data?.results?.[0];
+        const ref = typeof data === 'string' ? data : data?.link || data?.url || data?.name || uploaded?.link || uploaded?.url || uploaded?.file_name || uploaded?.fileName;
         if (!ref) throw new Error('上传成功但未返回文件地址');
         resolve({ ref, sample: false });
       } catch (error) { reject(error); }
