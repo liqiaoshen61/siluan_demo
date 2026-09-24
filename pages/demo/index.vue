@@ -17,7 +17,7 @@
     <view class="list-content">
     <view v-for="row in visibleRows" :key="row.id" class="card" @click="openDetail(row)">
       <view class="row"><text class="place">{{ row.town || '现场上报' }}</text><text class="badge" :class="row.status">{{ statuses[row.status] }}</text></view>
-      <text class="description">{{ row.description }}</text>
+      <view class="category-line"><text class="category-main">{{ row.kind || '未分类' }}</text><text class="category-divider">/</text><text class="category-sub">{{ row.problemAttribute || '未填写小类' }}</text></view>
       <text class="muted location">{{ row.location }}</text>
       <view class="card-bottom"><text class="kind">{{ row.kind }}<text v-if="row.river"> · {{ row.river }}</text></text><text class="muted">{{ row.importedAt.slice(0, 10) }}</text></view>
       <view class="card-action"><text>查看详情</text><text>{{ row.status === 'RECTIFYING' ? '去整改 →' : row.status === 'REVIEW' ? '去复核 →' : '查看记录 →' }}</text></view>
@@ -99,7 +99,7 @@ export default {
     form: { images: [] }, busy: false, loadingAction: '', error: '', recognition: '', judgment: null, approved: true, reason: '', pendingJudgment: null, pendingReview: null, showStartReview: false }),
   computed: {
     tabs() { return [{ value: '', label: '全部' }, ...Object.entries(statuses).map(([value, label]) => ({ value, label }))]; },
-    filtered() { const keyword = this.keyword.trim().toLowerCase(); return this.records.filter(r => (!this.status || r.status === this.status) && (!keyword || [r.id, r.town, r.river, r.location, r.description, r.kind].join(' ').toLowerCase().includes(keyword))); },
+    filtered() { const keyword = this.keyword.trim().toLowerCase(); return this.records.filter(r => (!this.status || r.status === this.status) && (!keyword || [r.id, r.town, r.river, r.location, r.kind, r.problemAttribute, r.description].join(' ').toLowerCase().includes(keyword))); },
     visibleRows() { return this.filtered.slice(0, this.limit); },
     selected() { return this.records.find(r => r.id === this.selectedId); },
     modeTitle() { return { create: '新增问题', detail: '问题详情', rectify: '问题整改', review: '问题复核' }[this.mode]; },

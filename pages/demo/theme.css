@@ -49,7 +49,10 @@ button[disabled] { opacity: .5; }
 .RECTIFYING { color: #936412; background: #fff0d1; }
 .REVIEW { color: #147dbb; background: #d9effd; }
 .COMPLETED { color: #30765b; background: #e2f0e9; }
-.description { display: block; margin: 20rpx 0 12rpx; font-size: 32rpx; line-height: 1.6; font-weight: 500; }
+.category-line { display: flex; align-items: baseline; gap: 12rpx; margin: 20rpx 0 12rpx; font-size: 29rpx; line-height: 1.6; }
+.category-main { color: #176fae; font-weight: 600; }
+.category-divider { color: #a2afb6; }
+.category-sub { color: #354b58; }
 .muted { color: #68767e; font-size: 26rpx; line-height: 1.7; }
 .location { display: block; }
 .card-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 18rpx; }
