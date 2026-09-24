@@ -6,6 +6,12 @@ export const statuses = { RECTIFYING: '待整改', REVIEW: '待复核', COMPLETE
 export const kinds = ['乱占', '乱采', '乱堆', '乱建'];
 const clone = value => JSON.parse(JSON.stringify(value));
 export const requestId = () => `demo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+function nextPlotNumber(records, now = new Date()) {
+  const stamp = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0'), String(now.getHours()).padStart(2, '0'), String(now.getMinutes()).padStart(2, '0'), String(now.getSeconds()).padStart(2, '0')].join('');
+  const prefix = `YC${stamp}`;
+  const sequence = records.filter(row => String(row.plotNumber || '').startsWith(prefix)).length + 1;
+  return `${prefix}${String(sequence).padStart(3, '0')}`;
+}
 export function imageUrl(ref, sample = false) {
   if (!ref) return '';
   if (/^(https?:|blob:|data:)/.test(ref)) return ref;
@@ -34,7 +40,7 @@ export function loadRecords() {
 export function saveRecords(records) { uni.setStorageSync(STORAGE_KEY, clone(records)); }
 export function resetRecords() { const records = initialRecords(); saveRecords(records); return records; }
 export function addRecord(records, form) {
-  const record = { ...clone(form), id: requestId(), status: 'RECTIFYING', version: 0,
+  const record = { ...clone(form), id: requestId(), plotNumber: nextPlotNumber(records), status: 'RECTIFYING', version: 0,
     importedAt: new Date().toLocaleString('zh-CN'), rectifyImages: [], rectifyDescription: '',
     history: [{ text: '新增问题', time: new Date().toLocaleString('zh-CN') }] };
   const next = [record, ...records]; saveRecords(next); return next;

@@ -1,5 +1,6 @@
 <template>
   <view class="demo-page">
+    <view class="header-fixed">
     <view class="header">
       <view class="header-spacer" />
       <text class="title">四乱问题管理</text>
@@ -12,6 +13,8 @@
         <view class="tab-row"><view v-for="tab in tabs" :key="tab.value" class="tab" :class="{ active: status === tab.value }" @click="status = tab.value">{{ tab.label }} <text>{{ count(tab.value) }}</text></view></view>
       </scroll-view>
     </view>
+    </view>
+    <view class="list-content">
     <view v-for="row in visibleRows" :key="row.id" class="card" @click="openDetail(row)">
       <view class="row"><text class="place">{{ row.town || '现场上报' }}</text><text class="badge" :class="row.status">{{ statuses[row.status] }}</text></view>
       <text class="description">{{ row.description }}</text>
@@ -22,6 +25,7 @@
     <view v-if="!filtered.length" class="empty">暂无匹配的问题，试试其他关键词</view>
     <button v-if="visibleRows.length < filtered.length" class="more" @click="limit += 10">加载更多</button>
     <text class="footnote">业务数据保存在当前设备，上传与识别使用真实服务</text>
+    </view>
 
     <view v-if="mode" class="overlay">
       <view class="sheet">
@@ -43,7 +47,7 @@
           <template v-else-if="selected">
             <view class="row"><text class="kind">{{ selected.kind }} · {{ selected.river }}</text><text class="badge" :class="selected.status">{{ statuses[selected.status] }}</text></view>
             <text class="detail-title">{{ selected.description }}</text><text class="muted">{{ selected.location }}</text>
-            <text class="meta">图斑编号：{{ selected.id }}</text><text v-if="selected.problemAttribute" class="meta">问题属性：{{ selected.problemAttribute }}</text>
+            <text class="meta">图斑编号：{{ selected.plotNumber || selected.id }}</text><text v-if="selected.problemAttribute" class="meta">问题属性：{{ selected.problemAttribute }}</text>
             <text class="section-title">问题照片</text>
             <view class="photos"><view v-for="photo in selected.images" :key="photo.ref" class="photo"><image v-if="imageUrl(photo.ref, photo.sample)" :src="imageUrl(photo.ref, photo.sample)" mode="aspectFill" @click="preview(photo)" /><text v-else class="placeholder">示例照片<br />待配置图片服务</text></view></view>
             <template v-if="mode === 'rectify'">
