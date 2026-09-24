@@ -25,6 +25,8 @@ npm test
 | 新增识别 | `http://218.85.23.37:20320/api/v1/issue/detect` |
 | 整改识别 | `http://218.85.23.37:20320/api/v1/issue/verify-rectification` |
 
+新增识别请求体使用上传结果中的文件名：`{"image_name":"uploads/2026/09/example.webp"}`。整改识别使用 `before_image_name`、`after_image_name` 字段；上传过的照片取上传结果中的 `file_name`，示例图斑的整改前照片使用数据中的相对路径。
+
 H5 通过同源 `/api/v1` 路径请求接口，由开发或部署服务器代理至上述后端，避免浏览器跨域拦截。上传表单字段为 `files`；文件引用从 `data.results[0].file_name` 读取，并以 `fileBase` 拼接访问地址。复核在本地模拟，不调用后端。
 
 ## 联调必须具备的条件

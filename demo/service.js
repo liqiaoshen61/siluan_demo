@@ -99,7 +99,8 @@ export function uploadImage(filePath) {
         const uploaded = data?.results?.[0];
         const ref = typeof data === 'string' ? data : data?.link || data?.url || data?.name || uploaded?.link || uploaded?.url || uploaded?.file_name || uploaded?.fileName;
         if (!ref) throw new Error('上传成功但未返回文件地址');
-        resolve({ ref, sample: false });
+        const imageName = uploaded?.file_name || uploaded?.fileName || data?.file_name || data?.fileName || ref;
+        resolve({ ref, image_name: imageName, sample: false });
       } catch (error) { reject(error); }
     },
     fail: () => reject(new Error('文件上传失败，请检查网络及代理配置')),

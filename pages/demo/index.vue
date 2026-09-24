@@ -132,9 +132,9 @@ export default {
     },
     preview(photo) { const url = imageUrl(photo.ref, photo.sample); if (url) uni.previewImage({ urls: [url] }); },
     recognize() { return this.run(async () => {
-      const image_url = imageUrl(this.form.images[0].ref, this.form.images[0].sample);
-      if (!image_url) throw new Error('无法获取图片地址，请重新上传');
-      const result = await realRequest('/issue/detect', { image_url });
+      const image_name = this.form.images[0]?.image_name;
+      if (!image_name) throw new Error('上传响应中没有文件名，请重新上传图片');
+      const result = await realRequest('/issue/detect', { image_name });
       if (!result || typeof result !== 'object') throw new Error('识别接口未返回有效结果');
       this.form.recognitionData = result;
       const categoryMain = result.category_main || result.categoryMain;
@@ -154,15 +154,15 @@ export default {
       this.judgment = null;
       const before = this.selected.images?.[0];
       const after = this.form.images?.[0];
-      const before_image_url = before && imageUrl(before.ref, before.sample);
-      const after_image_url = after && imageUrl(after.ref, after.sample);
-      if (!before_image_url || !after_image_url) throw new Error('整改校验需要整改前、整改后照片');
+      const before_image_name = before?.image_name || before?.ref;
+      const after_image_name = after?.image_name;
+      if (!before_image_name || !after_image_name) throw new Error('整改校验需要整改前、整改后照片文件名');
       const detection = this.selected.recognitionData || {};
       const category_main = detection.category_main || detection.categoryMain || this.selected.kind;
       const category_sub = detection.category_sub || detection.categorySub || this.selected.problemAttribute || this.selected.problemDescription || '';
       const description = detection.description || detection.suggestedDescription || this.selected.description || '';
       if (!category_main || !category_sub || !description) throw new Error('缺少问题分类或描述，请先完成新增问题识别');
-      const result = await realRequest('/issue/verify-rectification', { before_image_url, after_image_url, category_main, category_sub, description });
+      const result = await realRequest('/issue/verify-rectification', { before_image_name, after_image_name, category_main, category_sub, description });
       if (!result || typeof result !== 'object') throw new Error('整改识别接口未返回有效结果');
       const rawVerdict = result.passed ?? result.is_passed ?? result.is_rectified ?? result.rectification_passed ?? result.is_compliant ?? result.verified ?? result.rectified ?? result.result;
       const verdict = typeof rawVerdict === 'boolean' ? rawVerdict : typeof result.status === 'string' ? ['PASS', 'PASSED', 'COMPLETED', 'RECTIFIED'].includes(result.status.toUpperCase()) ? true : ['FAIL', 'FAILED', 'INCOMPLETE', 'NOT_RECTIFIED'].includes(result.status.toUpperCase()) ? false : undefined : undefined;
