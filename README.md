@@ -25,7 +25,7 @@ npm test
 | 新增识别 | `http://218.85.23.37:20320/api/v1/issue/detect` |
 | 整改识别 | `http://218.85.23.37:20320/api/v1/issue/verify-rectification` |
 
-开发代理在 `vite.config.js` 将 `/api/v1` 统一转发到 `http://218.85.23.37:20320`，以避免 H5 跨域问题。上传表单字段为 `file`，支持响应 `data.link`、`data.url`、`data.name` 或字符串地址。识别请求带 `X-API-Key`。复核在本地模拟，不调用后端。
+H5 直接请求上述后端地址，因此后端需允许宿主页面来源跨域访问，并允许 `X-API-Key` 请求头及 OPTIONS 预检。上传表单字段为 `file`，支持响应 `data.link`、`data.url`、`data.name` 或字符串地址。复核在本地模拟，不调用后端。
 
 ## 联调必须具备的条件
 
@@ -37,9 +37,9 @@ npm test
 ```html
 <script>
 window.RIVER_DEMO_CONFIG = {
-  apiBase: '/api/v1',
-  aiApiBase: '/api/v1',
-  uploadUrl: '/api/v1/file/upload',
+  apiBase: 'http://218.85.23.37:20320/api/v1',
+  aiApiBase: 'http://218.85.23.37:20320/api/v1',
+  uploadUrl: 'http://218.85.23.37:20320/api/v1/file/upload',
   fileBase: 'http://218.85.23.37:20320',
   sampleImageBase: 'http://27.156.118.74:19200',
 };
@@ -48,7 +48,7 @@ window.RIVER_DEMO_CONFIG = {
 
 ## 部署代理示例
 
-生产静态服务器也需要代理（Vite 代理只用于开发）：
+如果部署环境不能配置后端 CORS，可改用反向代理，并在 `RIVER_DEMO_CONFIG` 中将接口地址设置为同源路径：
 
 ```nginx
 location /api/v1/ {
