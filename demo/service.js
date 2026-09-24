@@ -91,7 +91,7 @@ export function realRequest(path, data) {
 }
 export function uploadImage(filePath) {
   return new Promise((resolve, reject) => uni.uploadFile({
-    url: demoConfig.uploadUrl, filePath, name: 'file', timeout: 60000,
+    url: demoConfig.uploadUrl, filePath, name: 'files', timeout: 60000,
     header: { 'X-API-Key': demoConfig.recognitionApiKey },
     success: res => {
       try {
