@@ -6,9 +6,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0', port: 8081,
     proxy: {
-      '/api/v1': { target: 'http://192.168.2.92:7010', changeOrigin: true },
-      '/river': { target: 'http://192.168.2.67:8905', changeOrigin: true },
-      '/jwsk-resource': { target: 'http://192.168.2.103:8086', changeOrigin: true },
+      '/api/v1': { target: 'http://218.85.23.37:20320', changeOrigin: true },
     },
   },
 });

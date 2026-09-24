@@ -21,11 +21,11 @@ npm test
 
 | 功能 | 地址 |
 | --- | --- |
-| 上传 | `/jwsk-resource/oss/endpoint/put-file-attach` |
-| 新增识别 | `/api/v1/issue/detect` |
-| 整改识别 | `/api/v1/issue/verify-rectification` |
+| 上传 | `http://218.85.23.37:20320/api/v1/file/upload` |
+| 新增识别 | `http://218.85.23.37:20320/api/v1/issue/detect` |
+| 整改识别 | `http://218.85.23.37:20320/api/v1/issue/verify-rectification` |
 
-开发代理在 `vite.config.js`：AI 识别 API 转发到 `http://192.168.2.92:7010`；上传转发到 `http://192.168.2.103:8086`。上传表单字段为 `file`，支持响应 `data.link`、`data.url`、`data.name` 或字符串地址。识别请求带 `X-API-Key`。复核在本地模拟，不调用后端。
+开发代理在 `vite.config.js` 将 `/api/v1` 统一转发到 `http://218.85.23.37:20320`，以避免 H5 跨域问题。上传表单字段为 `file`，支持响应 `data.link`、`data.url`、`data.name` 或字符串地址。识别请求带 `X-API-Key`。复核在本地模拟，不调用后端。
 
 ## 联调必须具备的条件
 
@@ -37,10 +37,10 @@ npm test
 ```html
 <script>
 window.RIVER_DEMO_CONFIG = {
-  apiBase: '/river/openapi/v1',
+  apiBase: '/api/v1',
   aiApiBase: '/api/v1',
-  uploadUrl: '/jwsk-resource/oss/endpoint/put-file-attach',
-  fileBase: 'http://192.168.2.103:8086',
+  uploadUrl: '/api/v1/file/upload',
+  fileBase: 'http://218.85.23.37:20320',
   sampleImageBase: 'http://27.156.118.74:19200',
 };
 </script>
@@ -52,13 +52,7 @@ window.RIVER_DEMO_CONFIG = {
 
 ```nginx
 location /api/v1/ {
-    proxy_pass http://192.168.2.92:7010;
-}
-location /river/ {
-    proxy_pass http://192.168.2.67:8905;
-}
-location /jwsk-resource/ {
-    proxy_pass http://192.168.2.103:8086;
+    proxy_pass http://218.85.23.37:20320;
 }
 ```
 
