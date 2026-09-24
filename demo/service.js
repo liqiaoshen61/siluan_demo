@@ -86,7 +86,7 @@ export function realRequest(path, data) {
     url: base.replace(/\/$/, '') + path, method: 'POST', data,
     header, timeout: 60000,
     success: res => { try { resolve(decodeApiResponse(res)); } catch (error) { reject(error); } },
-    fail: () => reject(new Error('接口连接失败，请检查网络及后端跨域配置')),
+    fail: () => reject(new Error('接口连接失败，请检查网络及代理配置')),
   }));
 }
 export function uploadImage(filePath) {
@@ -101,7 +101,7 @@ export function uploadImage(filePath) {
         resolve({ ref, sample: false });
       } catch (error) { reject(error); }
     },
-    fail: () => reject(new Error('文件上传失败，请检查网络及后端跨域配置')),
+    fail: () => reject(new Error('文件上传失败，请检查网络及代理配置')),
   }));
 }
 export function taskContext(record) {
