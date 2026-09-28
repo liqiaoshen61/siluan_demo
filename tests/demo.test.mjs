@@ -108,6 +108,12 @@ test('样例图片没有来源时展示占位，上传图片使用上传服务�
   assert.equal(service.imageUrl('/static/work_file/a.jpg', true), '');
   assert.equal(service.imageUrl('upload/a.jpg'), 'http://218.85.23.37:20320/upload/a.jpg');
   assert.equal(service.imageUrl('https://files/a.jpg'), 'https://files/a.jpg');
+  demoConfig.sampleImageBase = 'https://192.168.2.54:11000';
+  demoConfig.fileBase = 'https://192.168.2.54:11000';
+  assert.equal(service.imageUrl('/static/work_file/a.jpg', true), 'https://192.168.2.54:11000/fzstatic/work_file/a.jpg');
+  assert.equal(service.imageUrl('http://218.85.23.37:20320/uploads/a.jpg'), 'https://192.168.2.54:11000/uploads/a.jpg');
+  demoConfig.fileBase = '';
+  assert.equal(service.imageUrl('uploads/a.jpg'), '/uploads/a.jpg');
 });
 test('页面整改识别通过后才能提交，照片变化立即使结果失效', async () => {
   const vm = pageInstance();

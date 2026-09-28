@@ -21,10 +21,16 @@ function nextPlotNumber(records, now = new Date()) {
 }
 export function imageUrl(ref, sample = false) {
   if (!ref) return '';
-  if (/^(https?:|blob:|data:)/.test(ref)) return ref;
+  if (/^(blob:|data:)/.test(ref)) return ref;
+  // Demo images are served through the deployment host's HTTPS proxy.
+  // Strip the upload backend origin so uploaded previews remain same-origin.
+  const fileBackendOrigin = 'http://218.85.23.37:20320';
+  const normalizedRef = ref.replace(fileBackendOrigin, '').replace(/^\/static(?=\/)/, '/fzstatic');
+  if (/^https?:\/\//.test(normalizedRef)) return normalizedRef;
   const base = sample ? demoConfig.sampleImageBase : demoConfig.fileBase;
   if (sample && !base) return '';
-  return `${base.replace(/\/$/, '')}/${ref.replace(/^\/+/, '')}`;
+  if (!base) return `/${normalizedRef.replace(/^\/+/, '')}`;
+  return `${base.replace(/\/$/, '')}/${normalizedRef.replace(/^\/+/, '')}`;
 }
 export function initialRecords() {
   return seed.map((item, index) => ({
@@ -107,7 +113,10 @@ export function uploadImage(filePath) {
         const ref = typeof data === 'string' ? data : data?.link || data?.url || data?.name || uploaded?.show_url || uploaded?.link || uploaded?.url || uploaded?.file_name || uploaded?.fileName;
         if (!ref) throw new Error('上传成功但未返回文件地址');
         const imageName = uploaded?.file_name || uploaded?.fileName || data?.file_name || data?.fileName || ref;
-        const showUrl = uploaded?.show_url || uploaded?.showUrl || (typeof data === 'object' ? data?.show_url || data?.showUrl : '') || (/^https?:\/\//.test(ref) ? ref : '');
+        const rawShowUrl = uploaded?.show_url || uploaded?.showUrl || (typeof data === 'object' ? data?.show_url || data?.showUrl : '') || (/^https?:\/\//.test(ref) ? ref : '');
+        // Keep only the path from the upload response; imageUrl() will route it
+        // through the local HTTPS image proxy during development or same origin in production.
+        const showUrl = rawShowUrl.replace(/^http:\/\/218\.85\.23\.37:20320/i, '');
         resolve({ ref: showUrl || ref, image_name: imageName, sample: false });
       } catch (error) { reject(error); }
     },
