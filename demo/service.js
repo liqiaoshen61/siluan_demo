@@ -28,7 +28,8 @@ export function imageUrl(ref, sample = false) {
   const normalizedRef = ref.replace(fileBackendOrigin, '').replace(/^\/static(?=\/)/, '/fzstatic');
   if (/^https?:\/\//.test(normalizedRef)) return normalizedRef;
   const base = sample ? demoConfig.sampleImageBase : demoConfig.fileBase;
-  if (sample && !base) return '';
+  // Empty production base means the browser requests this path from the app's
+  // HTTPS origin, where Nginx forwards /fzstatic and uploaded image paths.
   if (!base) return `/${normalizedRef.replace(/^\/+/, '')}`;
   return `${base.replace(/\/$/, '')}/${normalizedRef.replace(/^\/+/, '')}`;
 }

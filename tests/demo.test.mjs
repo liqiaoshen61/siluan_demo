@@ -104,8 +104,8 @@ test('图斑 ID 不冒充真实任务 ID，远端版本优先', () => {
   assert.deepEqual(service.taskContext(row), { rectificationId: '1930000000000000601', version: 2 });
   assert.equal(service.taskContext({ ...row, remoteVersion: 3 }).version, 3);
 });
-test('样例图片没有来源时展示占位，上传图片使用上传服务源', () => {
-  assert.equal(service.imageUrl('/static/work_file/a.jpg', true), '');
+test('样例图走 fzstatic 同源路径，上传图片使用上传服务源', () => {
+  assert.equal(service.imageUrl('/static/work_file/a.jpg', true), '/fzstatic/work_file/a.jpg');
   assert.equal(service.imageUrl('upload/a.jpg'), 'http://218.85.23.37:20320/upload/a.jpg');
   assert.equal(service.imageUrl('https://files/a.jpg'), 'https://files/a.jpg');
   demoConfig.sampleImageBase = 'https://192.168.2.54:11000';
