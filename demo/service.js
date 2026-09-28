@@ -3,7 +3,14 @@ import { demoConfig } from './config.js';
 
 const STORAGE_KEY = 'river_h5_demo_v1';
 export const statuses = { RECTIFYING: '待整改', REVIEW: '待复核', COMPLETED: '已完成' };
-export const kinds = ['乱占', '乱采', '乱堆', '乱建'];
+export const categoryOptions = {
+  '乱建': ['岸线长期占而不用、多占少用、滥占滥用', '涉河违法违规建设项目', '涉河在建项目'],
+  '乱占': ['围垦湖泊', '未经依法批准围垦河道', '种植碍洪作物', '非法占用水域滩地'],
+  '乱采': ['非法采砂'],
+  '乱堆': ['乱堆垃圾', '废物废水倾倒、填埋等', '堆放碍洪物体'],
+  '其他': ['其他违法违规问题'],
+};
+export const kinds = Object.keys(categoryOptions);
 const clone = value => JSON.parse(JSON.stringify(value));
 export const requestId = () => `demo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 function nextPlotNumber(records, now = new Date()) {

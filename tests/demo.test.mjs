@@ -57,6 +57,27 @@ test('仅识别接口允许真实请求，复核接口保持本地模拟', async
   assert.equal(calls[0].header['X-API-Key'], 'test-recognition-key');
   assert.equal(calls[1].header['X-API-Key'], 'test-recognition-key');
 });
+test('AI 未返回分类时可手动选择大类和对应小类，切换大类会清空旧小类', async () => {
+  const vm = pageInstance(); vm.openCreate();
+  vm.form.images = [{ ref: 'http://files/photo.jpg', image_name: 'uploads/photo.jpg' }];
+  uni.request = options => options.success({ statusCode: 200, data: { code: 200, data: { description: '现场发现问题' } } });
+  await vm.recognize();
+  assert.equal(vm.form.kind, ''); assert.equal(vm.form.problemAttribute, '');
+  vm.selectMainCategory(vm.kinds.indexOf('乱占'));
+  assert.equal(vm.subKinds.length, 4);
+  vm.form.problemAttribute = '非法占用水域滩地';
+  vm.selectMainCategory(vm.kinds.indexOf('乱堆'));
+  assert.equal(vm.form.problemAttribute, '');
+  assert.deepEqual(vm.subKinds, ['乱堆垃圾', '废物废水倾倒、填埋等', '堆放碍洪物体']);
+});
+test('识别结果提示未发现四乱行为时不填入问题描述', async () => {
+  const vm = pageInstance(); vm.openCreate();
+  vm.form.images = [{ ref: 'http://files/photo.jpg', image_name: 'uploads/photo.jpg' }];
+  uni.request = options => options.success({ statusCode: 200, data: { code: 200, data: { description: '图中为高峡水库及周边群山与公路。未发现类似四乱行为。' } } });
+  await vm.recognize();
+  assert.equal(vm.form.description, '');
+  assert.match(vm.recognition, /未发现类似四乱行为/);
+});
 test('HTTP、业务、格式错误和网络失败均拒绝，不伪造识别成功', async () => {
   for (const response of [{ statusCode: 401, data: { msg: '未授权' } }, { statusCode: 200, data: { success: false, code: 200 } }, { statusCode: 200, data: '<html>' }]) {
     uni.request = options => options.success(response);

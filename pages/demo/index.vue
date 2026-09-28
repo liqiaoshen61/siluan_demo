@@ -35,15 +35,16 @@
           <template v-if="mode === 'create'">
             <text class="section-title">问题照片</text>
             <view class="photos"><view v-for="(photo, i) in form.images" :key="photo.ref" class="photo"><image :src="imageUrl(photo.ref)" mode="aspectFill" @click="preview(photo)" /><text class="remove" @click="removePhoto(i)">×</text></view><button v-if="form.images.length < 9" class="upload" :disabled="busy" @click="choosePhotos">＋<text>拍照 / 相册</text></button></view>
+            <view v-if="loadingAction === 'upload'" class="recognition-loading"><view class="loading-spinner" /><view class="loading-copy"><text class="loading-title">正在上传图片</text><text class="loading-hint">图片正在上传，请稍候…</text></view></view>
             <button class="secondary" :disabled="busy || !form.images.length" @click="recognize">AI 识别问题照片</button>
             <view v-if="loadingAction === 'recognize'" class="recognition-loading"><view class="loading-spinner" /><view class="loading-copy"><text class="loading-title">正在识别问题</text><text class="loading-hint">AI 正在分析现场照片，请稍候…</text></view></view>
             <text v-if="recognition" class="result">{{ recognition }}</text>
-            <text class="label">问题类型</text><picker :range="kinds" :value="Math.max(0, kinds.indexOf(form.kind))" @change="form.kind = kinds[$event.detail.value]"><view class="field">{{ form.kind }} <text>⌄</text></view></picker>
-            <template v-if="form.problemAttribute"><text class="label">问题子类</text><view class="field">{{ form.problemAttribute }}</view></template>
+            <text class="label">问题大类 <text class="required-mark">*</text></text><picker :range="kinds" :value="Math.max(0, kinds.indexOf(form.kind))" @change="selectMainCategory($event.detail.value)"><view class="field">{{ form.kind || '请选择问题大类' }} <text>⌄</text></view></picker>
+            <text class="label">问题小类 <text class="required-mark">*</text></text><picker :range="subKinds" :disabled="!form.kind || busy" :value="Math.max(0, subKinds.indexOf(form.problemAttribute))" @change="form.problemAttribute = subKinds[$event.detail.value]"><view class="field" :class="{ 'field-disabled': !form.kind }">{{ form.problemAttribute || (form.kind ? '请选择问题小类' : '请先选择问题大类') }} <text>⌄</text></view></picker>
             <text class="label">乡镇 / 街道</text><input v-model="form.town" class="field" placeholder="请输入乡镇或街道" maxlength="80" />
             <text class="label">河流</text><input v-model="form.river" class="field" placeholder="请输入河流名称" maxlength="80" />
-            <text class="label">问题地点 *</text><input v-model="form.location" class="field" placeholder="请输入问题发生地点" maxlength="200" />
-            <text class="label">问题描述 *</text><textarea v-model="form.description" class="textarea" maxlength="1000" placeholder="描述现场问题，可修改 AI 识别建议" />
+            <text class="label">问题地点 <text class="required-mark">*</text></text><input v-model="form.location" class="field" placeholder="请输入问题发生地点" maxlength="200" />
+            <text class="label">问题描述 <text class="required-mark">*</text></text><textarea v-model="form.description" class="textarea" maxlength="1000" placeholder="描述现场问题，可修改 AI 识别建议" />
           </template>
           <template v-else-if="selected">
             <view class="row"><text class="kind">{{ selected.kind }} · {{ selected.river }}</text><text class="badge" :class="selected.status">{{ statuses[selected.status] }}</text></view>
@@ -54,12 +55,13 @@
             <template v-if="mode === 'rectify'">
               <text class="section-title">整改材料</text><text class="muted">上传整改后照片，识别通过后提交复核。</text>
               <view class="photos"><view v-for="(photo, i) in form.images" :key="photo.ref" class="photo"><image :src="imageUrl(photo.ref)" mode="aspectFill" @click="preview(photo)" /><text class="remove" @click="removePhoto(i)">×</text></view><button v-if="form.images.length < photoLimit" class="upload" :disabled="busy" @click="choosePhotos">＋<text>拍照 / 相册（限1张）</text></button></view>
+              <view v-if="loadingAction === 'upload'" class="recognition-loading"><view class="loading-spinner" /><view class="loading-copy"><text class="loading-title">正在上传整改照片</text><text class="loading-hint">图片正在上传，请稍候…</text></view></view>
               <button class="secondary" :disabled="busy || !form.images.length" @click="judge">AI 识别整改结果</button>
               <view v-if="loadingAction === 'judge'" class="recognition-loading"><view class="loading-spinner" /><view class="loading-copy"><text class="loading-title">正在核验整改</text><text class="loading-hint">AI 正在比对整改前后照片，请稍候…</text></view></view>
               <text v-if="judgment" class="result">{{ judgment.conclusion || judgment.aiResult }}</text>
               <text v-if="rectifyAiFailCount > 0 && !canSubmit" class="field-hint">AI 未通过次数：{{ rectifyAiFailCount }}/3</text>
               <view v-if="manualReviewAvailable" class="manual-review-hint">AI 已连续 3 次判断未通过，可提交人工复核。</view>
-              <text class="label">整改说明 *</text><text v-if="rectifyDescriptionMissing" class="field-hint error-hint">请填写整改说明后再提交复核</text><textarea v-model="form.description" class="textarea" maxlength="1000" placeholder="请填写整改措施和完成情况" />
+              <text class="label">整改说明 <text class="required-mark">*</text></text><text v-if="rectifyDescriptionMissing" class="field-hint error-hint">请填写整改说明后再提交复核</text><textarea v-model="form.description" class="textarea" maxlength="1000" placeholder="请填写整改措施和完成情况" />
             </template>
             <template v-if="selected.rectifyDescription">
               <text class="section-title">整改情况</text><text class="body-text">{{ selected.rectifyDescription }}</text>
@@ -93,7 +95,7 @@
 </template>
 
 <script>
-import { statuses, kinds, loadRecords, resetRecords, addRecord, updateRecord, imageUrl, uploadImage, realRequest, requestId } from '@/demo/service.js';
+import { statuses, kinds, categoryOptions, loadRecords, resetRecords, addRecord, updateRecord, imageUrl, uploadImage, realRequest, requestId } from '@/demo/service.js';
 export default {
   data: () => ({ records: [], statuses, kinds, keyword: '', status: '', limit: 10, mode: '', selectedId: '',
     form: { images: [] }, busy: false, loadingAction: '', error: '', recognition: '', judgment: null, approved: true, reason: '', pendingJudgment: null, pendingReview: null, showStartReview: false }),
@@ -103,6 +105,7 @@ export default {
     visibleRows() { return this.filtered.slice(0, this.limit); },
     selected() { return this.records.find(r => r.id === this.selectedId); },
     modeTitle() { return { create: '新增问题', detail: '问题详情', rectify: '问题整改', review: '问题复核' }[this.mode]; },
+    subKinds() { return categoryOptions[this.form.kind] || []; },
     canSubmit() { return this.judgment?.aiResult === 'COMPLETED' && this.judgment?.canSubmit === true && !!this.judgment?.judgmentId; },
     rectifyAiFailCount() { return this.selected?.rectifyAiFailImageRef === this.form.images?.[0]?.ref ? Number(this.selected?.rectifyAiFailCount || 0) : 0; },
     manualReviewAvailable() { return this.rectifyAiFailCount >= 3 && !this.canSubmit; },
@@ -116,7 +119,7 @@ export default {
     count(status) { return this.records.filter(r => !status || r.status === status).length; },
     clearState() { this.error = ''; this.recognition = ''; this.judgment = null; this.pendingJudgment = null; this.pendingReview = null; this.reason = ''; this.approved = true; },
     close() { if (!this.busy) this.mode = ''; },
-    openCreate() { this.clearState(); this.form = { kind: '乱占', problemAttribute: '', town: '', river: '', location: '', description: '', images: [] }; this.mode = 'create'; },
+    openCreate() { this.clearState(); this.form = { kind: '', problemAttribute: '', town: '', river: '', location: '', description: '', images: [] }; this.mode = 'create'; },
     openDetail(row) { this.clearState(); this.selectedId = row.id; this.showStartReview = false; this.mode = row.status === 'REVIEW' ? 'review' : 'detail'; },
     startRectify() { this.form = { description: '', images: [] }; this.judgment = null; this.mode = 'rectify'; },
     reset() { uni.showModal({ title: '重置演示数据', content: '清除本地新增和操作记录，恢复原始 20 条示例数据？', success: ({ confirm }) => { if (confirm) { this.records = resetRecords(); this.status = ''; this.keyword = ''; this.limit = 10; } } }); },
@@ -127,11 +130,12 @@ export default {
       if (this.busy) return;
       const count = Math.max(1, this.photoLimit - this.form.images.length);
       uni.chooseImage({ count, sizeType: ['compressed'], sourceType: ['album', 'camera'],
-        success: res => this.run(async () => { this.invalidate(); for (const path of res.tempFilePaths.slice(0, count)) this.form.images.push(await uploadImage(path)); }),
+        success: res => this.run(async () => { this.invalidate(); for (const path of res.tempFilePaths.slice(0, count)) this.form.images.push(await uploadImage(path)); }, 'upload'),
         fail: e => { if (!String(e.errMsg).includes('cancel')) this.error = '无法打开相册或相机，请检查宿主 App 权限'; },
       });
     },
     preview(photo) { const url = imageUrl(photo.ref, photo.sample); if (url) uni.previewImage({ urls: [url] }); },
+    selectMainCategory(index) { const kind = this.kinds[index]; if (kind !== this.form.kind) { this.form.kind = kind; this.form.problemAttribute = ''; } },
     recognize() { return this.run(async () => {
       const image_name = this.form.images[0]?.image_name;
       if (!image_name) throw new Error('上传响应中没有文件名，请重新上传图片');
@@ -142,13 +146,16 @@ export default {
       const categorySub = result.category_sub || result.categorySub;
       const description = result.description || result.suggestedDescription;
       this.recognition = description || categorySub || '识别完成，请确认问题信息';
-      if (categoryMain) this.form.kind = categoryMain;
-      if (categorySub) this.form.problemAttribute = categorySub;
-      if (description) this.form.description = description;
+      const inferredMain = this.kinds.includes(categoryMain) ? categoryMain : this.kinds.find(kind => categoryOptions[kind].includes(categorySub));
+      if (inferredMain && inferredMain !== this.form.kind) { this.form.kind = inferredMain; this.form.problemAttribute = ''; }
+      if (categorySub && this.subKinds.includes(categorySub)) this.form.problemAttribute = categorySub;
+      if (description && !description.includes('未发现类似四乱行为')) this.form.description = description;
       if (result.suggestedLocation) this.form.location = result.suggestedLocation;
     }, 'recognize'); },
     submitCreate() { return this.run(async () => {
       const missing = [];
+      if (!this.form.kind) missing.push('问题大类');
+      if (!this.form.problemAttribute) missing.push('问题小类');
       if (!this.form.images.length) missing.push('问题照片');
       if (!this.form.location.trim()) missing.push('问题地点');
       if (!this.form.description.trim()) missing.push('问题描述');
