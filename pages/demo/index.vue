@@ -119,7 +119,7 @@ export default {
     openCreate() { this.clearState(); this.form = { kind: '乱占', problemAttribute: '', town: '', river: '', location: '', description: '', images: [] }; this.mode = 'create'; },
     openDetail(row) { this.clearState(); this.selectedId = row.id; this.showStartReview = false; this.mode = row.status === 'REVIEW' ? 'review' : 'detail'; },
     startRectify() { this.form = { description: '', images: [] }; this.judgment = null; this.mode = 'rectify'; },
-    reset() { uni.showModal({ title: '重置演示数据', content: '清除本地新增和操作记录，恢复原始 20 条示例数据？', success: ({ confirm }) => { if (confirm) this.records = resetRecords(); } }); },
+    reset() { uni.showModal({ title: '重置演示数据', content: '清除本地新增和操作记录，恢复原始 20 条示例数据？', success: ({ confirm }) => { if (confirm) { this.records = resetRecords(); this.status = ''; this.keyword = ''; this.limit = 10; } } }); },
     async run(action, loadingAction = '') { if (this.busy) return; this.busy = true; this.loadingAction = loadingAction; this.error = ''; try { await action(); } catch (e) { this.error = e.message || e.msg || '操作失败，请重试'; } finally { this.busy = false; this.loadingAction = ''; } },
     invalidate() { this.judgment = null; this.recognition = ''; this.pendingJudgment = null; this.form.recognitionData = null; },
     removePhoto(index) { if (this.busy) return; this.form.images.splice(index, 1); this.invalidate(); },

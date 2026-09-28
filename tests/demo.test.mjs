@@ -6,7 +6,7 @@ const seed = JSON.parse(fs.readFileSync(new URL('../demo/seed.json', import.meta
 let source = fs.readFileSync(new URL('../demo/service.js', import.meta.url), 'utf8');
 source = source.replace("import seed from './seed.json';", `const seed = ${JSON.stringify(seed)};`)
   .replace("import { demoConfig } from './config.js';", 'const demoConfig = globalThis.demoConfig;');
-globalThis.demoConfig = { apiBase: '/river/openapi/v1', fileBase: 'http://192.168.2.103:8086', uploadUrl: '/jwsk-resource/oss/endpoint/put-file-attach', sampleImageBase: '', taskBindings: {} };
+globalThis.demoConfig = { apiBase: '/api/v1', aiApiBase: '/api/v1', recognitionApiKey: 'test-recognition-key', fileBase: 'http://218.85.23.37:20320', uploadUrl: '/api/v1/file/upload', sampleImageBase: '', taskBindings: {} };
 const service = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 globalThis.demoService = service;
 let pageSource = fs.readFileSync(new URL('../pages/demo/index.vue', import.meta.url), 'utf8').split('<script>')[1].split('</script>')[0];
@@ -26,8 +26,8 @@ beforeEach(() => {
   globalThis.demoConfig.taskBindings = {};
   globalThis.uni = {
     getStorageSync: key => storage.get(key), setStorageSync: (key, value) => storage.set(key, value),
-    request: options => { calls.push(options); options.success({ statusCode: 200, data: { code: 200, data: { aiResult: 'COMPLETED' } } }); },
-    uploadFile: options => { calls.push(options); options.success({ statusCode: 200, data: JSON.stringify({ code: 200, data: { link: 'http://files/photo.jpg' } }) }); },
+    request: options => { calls.push(options); options.success({ statusCode: 200, data: { code: 200, data: options.url.endsWith('/issue/detect') ? { category_main: '乱堆', category_sub: '垃圾', description: '现场存在垃圾' } : { passed: true } } }); },
+    uploadFile: options => { calls.push(options); options.success({ statusCode: 200, data: JSON.stringify({ code: 200, data: { results: [{ file_name: 'uploads/photo.jpg', show_url: 'http://files/photo.jpg' }] } }) }); },
     showToast: () => {},
   };
 });
@@ -47,28 +47,31 @@ test('新增、整改、复核本地状态持久化，重置还原初始数据',
   assert.equal(service.loadRecords()[0].status, 'COMPLETED'); assert.equal(rows[0].history.length, 3);
   assert.equal(service.resetRecords().length, 20); assert.equal(calls.length, 0);
 });
-test('只有三个真实业务接口允许请求，免登录不携带伪造 token', async () => {
+test('仅识别接口允许真实请求，复核接口保持本地模拟', async () => {
   demoConfig.recognitionApiKey = 'test-recognition-key';
   await assert.rejects(service.realRequest('/inspection/direct-submit', {}), /不允许/);
   assert.equal(calls.length, 0);
-  for (const path of ['/inspection/recognition', '/rectification/ai-judgment', '/rectification/manual-review']) await service.realRequest(path, { imageRef: 'photo.jpg' });
-  assert.equal(calls.length, 3); assert.equal(calls[0].header['Blade-Auth'], undefined);
+  await assert.rejects(service.realRequest('/rectification/manual-review', {}), /不允许/);
+  for (const path of ['/issue/detect', '/issue/verify-rectification']) await service.realRequest(path, { image_name: 'uploads/photo.jpg' });
+  assert.equal(calls.length, 2); assert.equal(calls[0].header['Blade-Auth'], undefined);
   assert.equal(calls[0].header['X-API-Key'], 'test-recognition-key');
   assert.equal(calls[1].header['X-API-Key'], 'test-recognition-key');
-  assert.equal(calls[2].header['X-API-Key'], undefined);
 });
 test('HTTP、业务、格式错误和网络失败均拒绝，不伪造识别成功', async () => {
   for (const response of [{ statusCode: 401, data: { msg: '未授权' } }, { statusCode: 200, data: { success: false, code: 200 } }, { statusCode: 200, data: '<html>' }]) {
     uni.request = options => options.success(response);
-    await assert.rejects(service.realRequest('/inspection/recognition', {}));
+    await assert.rejects(service.realRequest('/issue/detect', {}));
   }
   uni.request = options => options.fail({});
-  await assert.rejects(service.realRequest('/inspection/recognition', {}), /连接失败/);
+  await assert.rejects(service.realRequest('/issue/detect', {}), /连接失败/);
 });
-test('上传地址与响应解析，不接受无文件地址或非 JSON 响应', async () => {
-  assert.equal((await service.uploadImage('local.jpg')).ref, 'http://files/photo.jpg');
-  assert.equal(calls[0].url, '/jwsk-resource/oss/endpoint/put-file-attach');
-  assert.equal(calls[0].name, 'file');
+test('上传解析 show_url 与 file_name，使用 files 字段和 API Key', async () => {
+  const photo = await service.uploadImage('local.jpg');
+  assert.equal(photo.ref, 'http://files/photo.jpg');
+  assert.equal(photo.image_name, 'uploads/photo.jpg');
+  assert.equal(calls[0].url, '/api/v1/file/upload');
+  assert.equal(calls[0].name, 'files');
+  assert.equal(calls[0].header['X-API-Key'], 'test-recognition-key');
   uni.uploadFile = options => options.success({ statusCode: 200, data: '{bad json' });
   await assert.rejects(service.uploadImage('local.jpg'), /格式异常/);
   uni.uploadFile = options => options.success({ statusCode: 200, data: { code: 200, data: {} } });
@@ -82,32 +85,37 @@ test('图斑 ID 不冒充真实任务 ID，远端版本优先', () => {
 });
 test('样例图片没有来源时展示占位，上传图片使用上传服务源', () => {
   assert.equal(service.imageUrl('/static/work_file/a.jpg', true), '');
-  assert.equal(service.imageUrl('upload/a.jpg'), 'http://192.168.2.103:8086/upload/a.jpg');
+  assert.equal(service.imageUrl('upload/a.jpg'), 'http://218.85.23.37:20320/upload/a.jpg');
   assert.equal(service.imageUrl('https://files/a.jpg'), 'https://files/a.jpg');
 });
 test('页面整改识别通过后才能提交，照片变化立即使结果失效', async () => {
   const vm = pageInstance();
-  demoConfig.taskBindings[vm.selectedId] = { rectificationId: '123', version: 0 };
-  vm.startRectify(); vm.form = { images: [{ ref: 'after.jpg' }], description: '已清理' };
-  await vm.submitRectify(); assert.equal(vm.selected.status, 'RECTIFYING');
-  uni.request = options => options.success({ statusCode: 200, data: { code: 200, data: { aiResult: 'COMPLETED', judgmentId: '456', version: 1, canSubmit: true } } });
+  vm.startRectify(); vm.form = { images: [{ ref: 'after.jpg', image_name: 'uploads/after.jpg' }], description: '已清理' };
+  await vm.submitRectify(); assert.equal(vm.selected.status, 'RECTIFYING'); assert.match(vm.error, /先完成整改识别/);
+  uni.request = options => { calls.push(options); options.success({ statusCode: 200, data: { code: 200, data: { passed: true, judgmentId: '456' } } }); };
   await vm.judge(); assert.equal(vm.canSubmit, true);
   vm.removePhoto(0); assert.equal(vm.canSubmit, false);
-  vm.form.images = [{ ref: 'new-after.jpg' }]; await vm.judge(); await vm.submitRectify();
-  assert.equal(vm.selected.status, 'REVIEW'); assert.equal(vm.selected.remoteVersion, 1);
+  vm.form.images = [{ ref: 'new-after.jpg', image_name: 'uploads/new-after.jpg' }]; await vm.judge(); await vm.submitRectify();
+  assert.equal(vm.selected.status, 'REVIEW');
+  assert.equal(calls.at(-1).data.before_image_name, vm.selected.images[0].ref);
+  assert.equal(calls.at(-1).data.after_image_name, 'uploads/new-after.jpg');
 });
-test('复核失败不改变状态，成功通过和驳回分别更新本地记录', async () => {
+test('AI 三次未通过后允许转人工复核', async () => {
+  const vm = pageInstance(); vm.startRectify();
+  vm.form = { images: [{ ref: 'after.jpg', image_name: 'uploads/after.jpg' }], description: '已清理' };
+  uni.request = options => options.success({ statusCode: 200, data: { code: 200, data: { passed: false, message: '整改未完成' } } });
+  await vm.judge(); assert.equal(vm.manualReviewAvailable, false);
+  await vm.judge(); assert.equal(vm.manualReviewAvailable, false);
+  await vm.judge(); assert.equal(vm.manualReviewAvailable, true);
+  await vm.submitRectify();
+  assert.equal(vm.selected.status, 'REVIEW'); assert.equal(vm.selected.manualReviewRequired, true);
+});
+test('复核必填意见，通过和驳回分别更新本地状态', async () => {
   const vm = pageInstance(); vm.selectedId = vm.records.find(r => r.status === 'REVIEW').id;
-  demoConfig.taskBindings[vm.selectedId] = { rectificationId: '123', version: 0 };
-  vm.reason = '现场检查完成'; vm.mode = 'review';
-  uni.request = options => options.fail({});
-  await vm.submitReview(); assert.equal(vm.selected.status, 'REVIEW'); assert.ok(vm.error);
-  const retryId = vm.pendingReview.data.requestId;
-  uni.request = options => { assert.equal(options.data.requestId, retryId); options.success({ statusCode: 200, data: { code: 200, data: { status: 'COMPLETED', version: 2 } } }); };
-  await vm.submitReview(); assert.equal(vm.selected.status, 'COMPLETED');
+  vm.mode = 'review';
+  await vm.submitReview(); assert.equal(vm.selected.status, 'REVIEW'); assert.match(vm.error, /复核意见/);
+  vm.reason = '现场检查完成'; await vm.submitReview(); assert.equal(vm.selected.status, 'COMPLETED');
   vm.selectedId = vm.records.find(r => r.status === 'REVIEW').id;
-  demoConfig.taskBindings[vm.selectedId] = { rectificationId: '124', version: 0 };
   vm.approved = false; vm.reason = '仍有遗留垃圾';
-  uni.request = options => options.success({ statusCode: 200, data: { code: 200, data: { status: 'PENDING', version: 1 } } });
   await vm.submitReview(); assert.equal(vm.selected.status, 'RECTIFYING');
 });
