@@ -19,7 +19,7 @@
       <view class="row"><text class="place">{{ row.town || '现场上报' }}</text><text class="badge" :class="row.status">{{ statuses[row.status] }}</text></view>
       <view class="category-line"><text class="category-main">{{ row.kind || '未分类' }}</text><text class="category-divider">/</text><text class="category-sub">{{ row.problemAttribute || '未填写小类' }}</text></view>
       <text class="muted location">{{ row.location }}</text>
-      <view class="card-bottom"><text class="kind">{{ row.kind }}<text v-if="row.river"> · {{ row.river }}</text></text><text class="muted">{{ row.importedAt.slice(0, 10) }}</text></view>
+      <view class="card-bottom"><text class="kind">{{ row.river ? `河流：${row.river}` : '河流：未填写' }}</text><text class="muted">{{ row.importedAt.slice(0, 10) }}</text></view>
       <view class="card-action"><text>查看详情</text><text>{{ row.status === 'RECTIFYING' ? '去整改 →' : row.status === 'REVIEW' ? '去复核 →' : '查看记录 →' }}</text></view>
     </view>
     <view v-if="!filtered.length" class="empty">暂无匹配的问题，试试其他关键词</view>
